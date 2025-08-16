@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { IP_ADDR } from "./config";
 
 export default function Signup() {
   const [name, setName] = useState("");
@@ -10,7 +11,7 @@ export default function Signup() {
     setStatus("전송 중...");
 
     try {
-      const res = await fetch("http://192.168.2.96:8000/rooms/signup/", {
+      const res = await fetch(`http://${IP_ADDR}:8000/rooms/signup/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, password }),  // ✅ JSON 형태

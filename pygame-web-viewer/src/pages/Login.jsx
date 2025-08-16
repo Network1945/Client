@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 // Login.jsx 성공시
 import { setAccessToken } from "./tokenStore";
+import { IP_ADDR } from "./config";
 
 export default function Login() {
   const [name, setName] = useState("");
@@ -15,7 +16,7 @@ export default function Login() {
 
     try {
       // 📌 서버 라우트에 슬래시가 있다면 그대로 맞추세요 (예: /rooms/login/)
-        const res = await fetch("http://192.168.2.96:8000/rooms/login/", {
+        const res = await fetch(`http://${IP_ADDR}:8000/rooms/login/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name, password }),

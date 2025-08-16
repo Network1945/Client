@@ -5,6 +5,8 @@ import MainPage from "./pages/MainPage";
 import ProfileEdit from "./pages/ProfileEdit";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import RoomPage from "./pages/RoomPage";
+import StartPage from "./pages/StartPage";
 
 import "./styles/MainPage.css";
 import "./styles/ProfileEdit.css";
@@ -18,6 +20,8 @@ export default function App() {
         <Route path="/Signup" element={<Signup />} />
         <Route path="/Login" element={<Login />} />
         <Route path="/ProfileEdit" element={<ProfileEdit />} />
+        <Route path="/room/:id" element={<RoomPage />} />
+        <Route path="/StartPage" element={<StartPage />} />
       </Routes>
     </Router>
   );

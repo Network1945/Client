@@ -39,11 +39,22 @@ a {
 /* 상단 탭 */
 .tab { position: absolute; height: 39.2px; top: 0; border-radius: 19.6px 19.6px 0 0; display:flex; align-items:center; justify-content:center; }
 .tab span { font-size:18px; color:#000;}
-.tab.main    { left: 0; width: 254.1px; background:#6FC1FF;}
-.tab.create  { left: 254.8px; width: 254.1px; background:#98B9FF; }
-.tab.rank    { left: 509.6px; width: 254.1px; background:#6BFFAE; }
-.tab.profile { left: 764.4px; width: 140px; background:#E4FF6B; }
+/* 기본 탭 배치(예시) */
+.tab.main    { left: 0;        width: 254.1px; }
+.tab.create  { left: 254.8px;  width: 254.1px; }
+.tab.signup  { left: 509.6px;  width: 140px; }
+.tab.login   { left: 650.0px;  width: 140px; }
+.tab.profile { left: 790.4px;  width: 140px; } /* 기본값 */
+  
+/* ✅ 로그인 상태에서 재배치 */
+.canvas.authed .tab.profile { left: 509.6px; }         /* 방만들기 옆 */
+.canvas.authed .tab.logout  { left: 650.0px; width: 140px; } /* 그 옆 */
 
+.tab.logout { border: none; cursor: pointer; }
+.tab.logout span { pointer-events: none; }
+
+.canvas:not(.authed) .tab.signup { left: 254.8px; width: 254.1px; } /* 메인 옆으로 이동 */
+.canvas:not(.authed) .tab.login  { left: 509.6px; }   
 /* 상단 본문 패널 */
 .leftTop { position:absolute; left:0; top:39.2px; width:255px; height:429.1px; background:#F1F0F0; border:1px solid #000; box-sizing:border-box; }
 .rightTop { position:absolute; left:254.1px; top:39.2px; width:753.9px; height:429.1px; background:#F1F0F0; border:1px solid #000; overflow:auto; box-sizing:border-box; }
@@ -53,7 +64,7 @@ a {
 .roomCard { display:flex; width: 600px; height: 120.4px; background:#D9D9D9; border-radius:14px; margin-bottom:12.6px; }
 .roomIdx { width:57.4px; background:#B1AEAE; border-radius:14px 0 0 14px; display:flex; align-items:center; justify-content:center; font-size:16.8px; }
 .roomBody { flex:1; display:flex; align-items:center; padding-left:24.5px; width: 100%;}
-.roomEntry { width: 60px; position: absolute; right: 200px; background:#bbbaba; border-radius:10px; font-size:19.6px; cursor:pointer;}
+.roomEntry { width: 60px; position: absolute; right: 200px; background:#bbbaba; border-radius:10px; font-size:17px; cursor:pointer;}
 .roomTitle { font-size:21px; }
 
 /* 하단 패널 */
@@ -68,9 +79,173 @@ a {
 
 /* 아바타 + 닉네임 */
 .avatar { position:absolute; left:57.4px; top:523.1px; width:140px; height:140px; background:#D9D9D9; border-radius:50%; }
-.nickname { position:absolute; left:86.8px; top:674.8px; font-size:16.8px; }
+.nickname { position:absolute; width: 248px; top:674.8px; font-size:16.8px; text-align: center;}
 
 /* 채팅 입력 + 전송 */
 .chatInput { position:absolute; left:261.4px; top:661.5px; width:710px; height:42px; border-radius:14px; padding:0 14px; font-size:12.6px; background:#fff; }
 .sendBtn { position:absolute; left:914.8px; top:661.5px; width:87.5px; height:45px; background:#BAB7B7; border:1px solid #000; border-radius:0 14px 14px 0; font-size:19.6px; cursor:pointer; }
 .sendBtn:active { transform: translateY(1px); }
+
+/* 버튼처럼 동작하는 탭 공통 */
+.tab.create { border: none; cursor: pointer; }
+
+/* 모달 */
+.modalOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalCard {
+  width: 560px;
+  background: #EDEDED;
+  border-radius: 18px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  padding: 24px 28px 28px;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+
+.modalClose {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.modalRow {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.modalLabel {
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.modalInput {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  padding: 0 12px;
+  background: #fff;
+  font-size: 14px;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.modalCreateBtn {
+  width: 160px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #bbb;
+  background: #E6E6E6;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* img 아이콘 보정 */
+.myInfoTitle .icon,
+.chatTitle .icon {
+  width: 21px;
+  height: 21px;
+  object-fit: contain;
+  background: none;
+  border-radius: 0;
+  margin-left: 6px;
+}
+
+/* 탭 색상 교체 */
+.tab.main    { left: 0;        width: 254.1px; background:#6FC1FF; }
+.tab.create  { left: 254.8px;  width: 254.1px; background:#98B9FF; }
+.tab.signup  { left: 509.6px;  width: 140px;   background:#9FFFCF; }  /* 새로 추가 */
+.tab.login   { left: 650.0px;  width: 140px;   background:#FFE49F; }  /* 새로 추가 */
+.tab.profile { left: 790.4px;  width: 140px;   background:#E4FF6B; }
+
+/* 버튼처럼 보이게 */
+.tab.signup a, .tab.login a { display:flex; align-items:center; justify-content:center; width:100%; height:100%; }
+
+/* 회원가입 카드 */
+.authCard {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 420px;
+  background: #F4F4F4;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  display: grid;
+  grid-template-columns: 1fr;
+  row-gap: 10px;
+}
+
+.authLabel { font-size: 14px; color:#333; }
+.authInput {
+  height: 40px; border:1px solid #ccc; border-radius: 10px; padding: 0 12px;
+  background:#fff; font-size:14px;
+}
+.authBtn {
+  margin-top: 8px; height: 44px; border-radius: 10px; border:1px solid #bbb;
+  background:#E6E6E6; cursor:pointer; font-size:16px;
+}
+.authStatus { margin-top: 4px; font-size: 13px; color:#555; }
+
+/* 방 카드 내부 버튼 배치 조정 */
+.roomBody { position: relative; }
+
+/* 입장 버튼은 오른쪽 끝 */
+.roomEntry {
+  position: absolute;
+  right: 24px;
+  background: #bbbaba;
+  border-radius: 10px;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 6px 14px;
+}
+
+/* 삭제 버튼은 그 왼쪽 */
+.roomDelete {
+  position: absolute;
+  right: 110px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  background: #ffffff; /* 살짝 붉은 톤 */
+  border: 1px solid #b99;
+}
+
+/* 우측 상단의 '목록 초기화' 버튼 */
+.roomsHeader {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 14px 0 14px;
+}
+.clearRoomsBtn {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #bbb;
+  background: #eee;
+  cursor: pointer;
+}

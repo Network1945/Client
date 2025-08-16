@@ -1,0 +1,72 @@
+.ProfileEditBackGround {
+  position: absolute;
+  top: 39px;
+  width: 1008px;
+  height: 677.6px;
+  background-color: #F1F0F0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 80px;
+}
+
+/* 프로필 원 */
+.ProfileCircle {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: #D9D9D9;
+  position: relative; /* 아이콘 배치용 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.EditIcon {
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+  font-size: 18px;
+  background: white;
+  border-radius: 50%;
+  padding: 5px;
+  cursor: pointer;
+  border: 1px solid #aaa;
+}
+
+/* 정보 입력 박스 */
+.ProfileInfo {
+  margin-top: 50px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.InfoRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon {
+  font-size: 14px;
+}
+
+.infoInput {
+  width: 250px;
+  height: 32px;
+  padding: 5px 10px;
+  border-radius: 16px;
+  border: 1px solid #ccc;
+  background: white;
+}
+
+.editBtn {
+  background: #E0E0E0;
+  border: none;
+  border-radius: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}

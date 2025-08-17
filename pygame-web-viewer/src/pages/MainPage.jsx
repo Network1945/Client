@@ -28,11 +28,8 @@ export default function MainPage() {
 
   const scrollRef = useRef(null);
 
-  // rooms 초기 로드
-  const [rooms, setRooms] = useState(() => {
-    const saved = localStorage.getItem("rooms");
-    return saved ? JSON.parse(saved) : [];
-  });
+  // 서버 방 목록 (객체 배열)
+  const [rooms, setRooms] = useState([]); // [{ roomId, name, host, status, created_at }, ...]
 
   const [nickName, setNickName] = useState(localStorage.getItem("nickName") || "NickName");
   useEffect(() => {
@@ -41,13 +38,43 @@ export default function MainPage() {
     return () => window.removeEventListener("auth-changed", onAuth);
   }, []);
 
+  // === 방 리스트 불러오기 ===
+  const fetchRooms = async () => {
+    try {
+      const accessToken =
+        sessionStorage.getItem("accessToken") ||
+        localStorage.getItem("accessToken") ||
+        localStorage.getItem("authToken") ||
+        "";
+
+      const res = await fetch(`http://${IP_ADDR}:8000/rooms/list/`, {
+        method: "GET",
+        headers: {
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      // 기대 포맷: [{ roomId, host, status, created_at, name }, ...]
+      setRooms(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("방 목록 조회 실패:", e);
+      setRooms([]); // 실패 시 빈 목록
+    }
+  };
+
+  // 최초 진입 시 목록 로드
+  useEffect(() => {
+    fetchRooms();
+  }, []);
+
   // === 방만들기 모달 ===
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
-
   const openCreate = () => setShowCreate(true);
 
-  // 만들기: 서버로 POST -> 성공 시 목록 갱신 + 이동
   // 만들기: 서버로 POST -> 성공 시 목록 갱신 + 이동
   const handleCreateRoom = async (name, password) => {
     if (creating) return;
@@ -68,7 +95,7 @@ export default function MainPage() {
       const payload = {
         name: roomName,
         password: password || "",
-        variable: accessToken, // 서버가 body로도 토큰 받는다면 유지
+        variable: accessToken,
       };
 
       const res = await fetch(`http://${IP_ADDR}:8000/rooms/create/`, {
@@ -95,33 +122,27 @@ export default function MainPage() {
         throw new Error(msg);
       }
 
-      // ✅ 서버 응답: { roomId, name, password }
+      // 서버 응답: { roomId, name, password? }
       const data = await res.json();
+      if (!data?.roomId) throw new Error("서버가 roomId를 반환하지 않았습니다.");
 
-      if (!data?.roomId) {
-        throw new Error("서버가 roomId를 반환하지 않았습니다.");
-      }
-
-      // 화면 표시용 이름은 서버가 준 name 우선, 없으면 입력값 사용
       const displayName = data.name || roomName;
 
-      // 목록 + 저장
-      const updatedRooms = [displayName, ...rooms];
-      setRooms(updatedRooms);
-      localStorage.setItem("rooms", JSON.stringify(updatedRooms));
+      // UI 즉시 반영 (서버에서 다시 받아오면 덮어씀)
+      setRooms(prev => [
+        { roomId: data.roomId, name: displayName, host: nickName, status: "lobby", created_at: new Date().toISOString() },
+        ...prev,
+      ]);
 
-      // 상세 저장 (id 필수)
-      const details = JSON.parse(localStorage.getItem("roomDetails") || "[]");
-      const detail = { id: data.roomId, name: displayName };
-      if (typeof data.password !== "undefined") detail.password = data.password;
-      details.push(detail);
-      localStorage.setItem("roomDetails", JSON.stringify(details));
-
-      // 모달 닫고, ✅ roomId로 이동
       setShowCreate(false);
+
+      // 상세 페이지로 이동
       navigate(`/room/${encodeURIComponent(data.roomId)}`, {
         state: { id: data.roomId, name: displayName, nickname: nickName },
       });
+
+      // 최신 목록 재조회(신뢰원은 서버)
+      fetchRooms();
     } catch (e) {
       console.error(e);
       alert("방 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
@@ -130,49 +151,19 @@ export default function MainPage() {
     }
   };
 
-
   // 방 카드 "입장"
-  const handleEnterRoom = (index, title) => {
-    const details = JSON.parse(localStorage.getItem("roomDetails") || "[]");
-    const found = details.find((r) => r.name === title);
-    const id = found ? found.id : `idx-${index}`;
-    navigate(`/room/${encodeURIComponent(id)}`, { id, name: title, nickname: nickName });
+  const handleEnterRoom = (room) => {
+    const id = room.roomId || room.id;
+    navigate(`/room/${encodeURIComponent(id)}`, {
+      state: { id, name: room.name, nickname: nickName },
+    });
   };
 
-  // ✅ 방 카드 "삭제" (해당 인덱스만 제거)
-  const handleDeleteRoom = (idxToRemove) => {
-    const name = rooms[idxToRemove];
-    const detailsAll = JSON.parse(localStorage.getItem("roomDetails") || "[]");
-    const removedDetails = detailsAll.filter((r) => r.name === name);
-
-    removedDetails.forEach((d) => {
-      const id = d.id;
-      const entry = window.__roomSockets?.[id];
-      if (entry) {
-        try { entry.main?.close(1000, "deleted"); } catch {}
-        try { entry.poll?.close(1000, "deleted"); } catch {}
-        delete window.__roomSockets[id];
-      }
-    });
-
-    removedDetails.forEach((d) => {
-      window.dispatchEvent(new CustomEvent("room-delete", { detail: { id: d.id } }));
-    });
-
-    if (!window.confirm(`'${name}' 방을 목록에서 제거할까요?`)) return;
-
-    const updated = rooms.filter((_, i) => i !== idxToRemove);
-    setRooms(updated);
-    updated.length
-      ? localStorage.setItem("rooms", JSON.stringify(updated))
-      : localStorage.removeItem("rooms");
-
-    // roomDetails 에서 같은 이름을 가진 항목 제거(여러 개면 모두 삭제)
-    const details = JSON.parse(localStorage.getItem("roomDetails") || "[]")
-      .filter((r) => r.name !== name);
-    details.length
-      ? localStorage.setItem("roomDetails", JSON.stringify(details))
-      : localStorage.removeItem("roomDetails");
+  // (선택) 클라이언트 목록에서만 제거
+  const handleDeleteRoom = (room) => {
+    if (!window.confirm(`'${room.name}' 방을 목록에서 제거할까요?`)) return;
+    setRooms(prev => prev.filter(r => r.roomId !== room.roomId));
+    // 서버 삭제가 필요하면 여기에 DELETE 요청 추가 가능
   };
 
   return (
@@ -199,15 +190,14 @@ export default function MainPage() {
         {/* 좌상/우상 영역 */}
         <div className="leftTop" />
         <div className="rightTop">
-
           <div className="rooms" ref={scrollRef}>
             {rooms.map((room, i) => (
               <RoomCard
-                key={`${room}-${i}`}
+                key={room.roomId || `${room.name}-${i}`}
                 index={i + 1}
-                title={room}
+                room={room}
                 onEnter={handleEnterRoom}
-                onDelete={() => handleDeleteRoom(i)}
+                onDelete={handleDeleteRoom}
               />
             ))}
           </div>
@@ -244,18 +234,22 @@ export default function MainPage() {
   );
 }
 
-function RoomCard({ index, title, onEnter, onDelete }) {
+function RoomCard({ index, room, onEnter, onDelete }) {
+  const rid = room.roomId || room.id; // 안전하게
+
   return (
     <div className="roomCard">
       <div className="roomIdx"><span>{String(index).padStart(2, "0")}</span></div>
       <div className="roomBody">
-        <div className="roomTitle">{title}</div>
-        <button className="roomEntry" onClick={() => onEnter(index, title)}>입장</button>
+        <div className="roomTitle">
+          <span className="roomName">{room.name}</span>
+          <span className="roomId">#{rid}</span>
+        </div>
+        <button className="roomEntry" onClick={() => onEnter(room)}>입장</button>
       </div>
     </div>
   );
 }
-
 /* 모달 */
 function CreateRoomModal({ onClose, onCreate, creating }) {
   const [name, setName] = useState("");

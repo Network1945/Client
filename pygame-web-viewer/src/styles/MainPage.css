@@ -264,3 +264,9 @@ a {
   background: #A8D8FF; /* 원하시면 색상 바꾸세요 */
 }
 .tab.start a { display:flex; align-items:center; justify-content:center; width:100%; height:100%; }
+
+.roomTitle { display: flex; align-items: center; gap: 20px; }
+.roomId {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+}

@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
 import { IP_ADDR } from "./config";
+
 /** WS 서버 주소 */
 const HOST = `${IP_ADDR}:8000`;
 
@@ -59,7 +60,9 @@ function safeSend(ws, payload, asText = false) {
 /** URL: /ws/rooms/:roomId?name=닉네임  (끝 슬래시 없음) */
 function buildUrl(roomId, name) {
   const wsProto = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${wsProto}://${HOST}/ws/rooms/${encodeURIComponent(roomId)}?name=${encodeURIComponent(name)}`;
+  return `${wsProto}://${HOST}/ws/rooms/${encodeURIComponent(roomId)}?name=${encodeURIComponent(
+    name
+  )}`;
 }
 
 /** 하나의 URL로 연결 시도 */
@@ -74,7 +77,7 @@ function attempt(url) {
   });
 }
 
-/** ✅ 멤버 표준화: 문자열 → {name}, 객체면 name/nickname/userId/id 중 하나를 name으로 */
+/** 멤버 표준화: 문자열 → {name}, 객체면 name/nickname/userId/id 중 하나를 name으로 */
 function normalizeMembers(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -95,16 +98,18 @@ export default function RoomPage() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [members, setMembers] = useState([]);  // always [{name: "..."}]
+  const [members, setMembers] = useState([]);  // [{name: "..."}]
   const [count, setCount] = useState(0);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [waitingStart, setWaitingStart] = useState(false);
 
   const wsRef = useRef(null);         // 메인 소켓
   const pingRef = useRef(null);       // ping interval
   const whoTimerRef = useRef(null);   // 2초 who interval
   const reconnectTimer = useRef(null);
   const shouldReconnect = useRef(true);
+  const startFallbackRef = useRef(null);
 
   const username = getDisplayName();
 
@@ -157,6 +162,30 @@ export default function RoomPage() {
     navigate("/MainPage", { replace: true });
   };
 
+  // 시작하기(모두 이동): 서버에 브로드캐스트 요청 → ACK(혹은 navigate/start) 수신 시 이동
+  // 시작하기(모두 이동): 서버에 {"type":"start"}만 보냄
+  const startForAll = () => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      alert("연결이 끊어졌습니다.");
+      return;
+    }
+    setWaitingStart(true);
+
+    // ✅ 딱 이것만 전송
+    safeSend(ws, { type: "start" });
+
+    // (선택) 안전망: 2초 내 브로드캐스트 없으면 본인만 이동
+    clearTimeout(startFallbackRef.current);
+    startFallbackRef.current = setTimeout(() => {
+      if (waitingStart) {
+        shouldReconnect.current = false;
+        try { wsRef.current?.close(1000, "navigate"); } catch {}
+        navigate("/StartPage", { state: { id: roomId, name: location.state?.name } });
+      }
+    }, 2000);
+  };
+
   // 삭제 브로드캐스트 수신 시 정리하고 메인으로
   useEffect(() => {
     const onRoomDeleted = (ev) => {
@@ -177,12 +206,15 @@ export default function RoomPage() {
     registerSocket(roomId, "main", ws);
 
     ws.onopen = () => {
+      // 최초 who
       if (!safeSend(ws, { type: "who" })) safeSend(ws, "who", true);
 
+      // keepalive ping
       pingRef.current = setInterval(() => {
         safeSend(ws, { type: "ping" }) || safeSend(ws, "ping", true);
       }, 25000);
 
+      // 2초 who 폴링
       whoTimerRef.current = setInterval(() => {
         if (!safeSend(ws, { type: "who" })) safeSend(ws, "who", true);
       }, 2000);
@@ -204,7 +236,7 @@ export default function RoomPage() {
           return;
         }
         case "presence_count": {
-          // 서버가 문자열 배열로 내려줄 수 있음
+          // 문자열 배열일 수도 있음
           const norm = normalizeMembers(msg.members);
           if (norm.length) setMembers(norm);
           setCount(Number(msg.count) || norm.length || 0);
@@ -221,6 +253,20 @@ export default function RoomPage() {
         }
         case "system": {
           if (msg.text) setMessages((prev) => [...prev, { type: "system", text: msg.text }]);
+          return;
+        }
+        // ✅ 서버 브로드캐스트 수신 시 전원 이동
+        case "navigate":
+        case "start": {
+          clearTimeout(startFallbackRef.current);
+          setWaitingStart(false);
+          shouldReconnect.current = false;
+          try { clearInterval(pingRef.current); } catch {}
+          try { clearInterval(whoTimerRef.current); } catch {}
+          try { wsRef.current?.close(1000, "navigate"); } catch {}
+          navigate(msg.path || "/StartPage", {
+            state: { id: roomId, name: location.state?.name },
+          });
           return;
         }
         default:
@@ -269,6 +315,7 @@ export default function RoomPage() {
       clearInterval(whoTimerRef.current);
       whoTimerRef.current = null;
       clearTimeout(reconnectTimer.current);
+      clearTimeout(startFallbackRef.current);
       wsRef.current?.close(1000, "leaving");
     };
   }, [roomId]);
@@ -289,24 +336,31 @@ export default function RoomPage() {
   return (
     <div className="viewport">
       <div className="canvas">
+        {/* 상단 탭 */}
         <div className="tab main">
           <Link to="/MainPage"><span>메인 화면</span></Link>
         </div>
-        <div className="tab start">
-          <Link to="/StartPage"><span>시작하기</span></Link>
-        </div>
+
+        {/* 시작하기: 모든 사람 이동 트리거 (Link → button) */}
+        <button
+          className="tab start"
+          onClick={startForAll}
+          title="모든 참가자를 시작하기 화면으로 이동"
+        >
+          <span>{waitingStart ? "시작중..." : "시작하기"}</span>
+        </button>
+
+        {/* 삭제 */}
         <button
           className="tab delete"
           onClick={handleDeleteRoom}
-          style={{
-            left: 509.6, width: 140,
-            background: "#ffc9c9", border: "1px solid #bbb", cursor: "pointer"
-          }}
+          style={{ left: 509.6, width: 140, background: "#ffc9c9", border: "1px solid #bbb", cursor: "pointer" }}
           title="이 방을 삭제합니다"
         >
           <span>삭제</span>
         </button>
 
+        {/* 탭 아래 1px 테두리 */}
         <div className="contentFrame" />
 
         <div style={{ padding: 24 }}>
